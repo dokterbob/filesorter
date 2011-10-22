@@ -103,6 +103,8 @@ def sort_files(path, dest, dry_run=False):
                 
                 try:
                     os.rmdir(dirpath)
+                    logger.info('Removed directory %s', dirpath)
+
                 except OSError:
                     logger.warn('Cannot unlink %s; not empty', dirpath)
 
