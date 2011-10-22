@@ -79,6 +79,14 @@ def sort_files(path, dest, dry_run=False):
             logger.debug('Main type: %s', main_type)
 
             mtime = datetime.fromtimestamp(os.path.getmtime(fullpath))
+
+            delta = now - mtime
+            if delta < MIN_AGE:
+                logger.warn('File %s modified too recently, skipping (%s minute(s) ago)',
+                            fullpath, int(delta.total_seconds()/60))
+                continue
+                
+            datestr = mtime.isoformat()
             # if not dry_run:
             #     shutil.move(src, dst)
 
