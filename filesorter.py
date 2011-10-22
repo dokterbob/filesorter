@@ -13,7 +13,7 @@ To Public License, Version 2, as published by Sam Hocevar. See
 COPYING for more details.
 """
 
-import sys, argparse, os, re, logging, mimetypes, shutil, time
+import sys, argparse, os, re, logging, mimetypes, shutil, time, errno
 from datetime import datetime, timedelta
 
 # Default logger
@@ -65,16 +65,16 @@ def sort_files(path, dest, dry_run=False):
 
             fullpath = os.path.join(dirpath, filename)
             logger.debug('Processing: %s', fullpath)
-            
+
             # Determine file change date
             mtime = datetime.fromtimestamp(os.path.getmtime(fullpath))
-            
+
             delta = now - mtime
             if delta < MIN_AGE:
                 logger.warn('File %s modified too recently, skipping (%s minute(s) ago)',
                             fullpath, int(delta.total_seconds()/60))
                 continue
-                
+
             datestr = mtime.date().isoformat()
 
             (mimetype, enoding) = mimetypes.guess_type(filename)
@@ -85,28 +85,40 @@ def sort_files(path, dest, dry_run=False):
             else:
                 logger.debug('Mimetype: %s', mimetype)
                 main_type = mimetype.split('/')[0].title()
-            
+
             # Replace 'Application' with 'Unknown'
             if main_type == 'Application':
                 main_type = 'Unknown'
 
             logger.debug('Main type: %s', main_type)
 
-            new_filename = os.path.join(dest, datestr, main_type, dirpath[len(path):], filename)
+            new_dir = os.path.join(dest, datestr, main_type, dirpath[len(path):])
+            new_filename = os.path.join(new_dir, filename)
 
             logger.info('Renaming %s to %s', fullpath, new_filename)
 
             if not dry_run:
-                # shutil.move(src, dst)
+                try:
+                    os.makedirs(new_dir)
+                except OSError, e:
+                    if e.errno == errno.EEXIST:
+                        logger.warn('Directory %s already exists', new_dir)
+                    else:
+                        raise
+
+                shutil.move(fullpath, new_filename)
 
                 logger.debug('Attempting to remove directory %s', dirpath)
-                
+
                 try:
                     os.rmdir(dirpath)
                     logger.info('Removed directory %s', dirpath)
 
-                except OSError:
-                    logger.warn('Cannot unlink %s; not empty', dirpath)
+                except OSError, e:
+                    if e.errno == errno.ENOTEMPTY:
+                        logger.warn('Cannot unlink %s; not empty', dirpath)
+                    else:
+                        raise
 
 
 def main(argv=None):
