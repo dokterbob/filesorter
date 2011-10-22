@@ -19,14 +19,14 @@ import sys, argparse, os, re, logging, mimetypes
 logger = logging.getLogger('filesorter')
 
 
-IGNORE_PATHS = (
+IGNORE_FILENAMES = (
     re.compile('^\.'),
 )
 
-def ignore_path(path):
+def ignore_filename(filename):
     """ Whether or not to ignore a specific path. """
-    for regex in IGNORE_PATHS:
-        if regex.search(path):
+    for regex in IGNORE_FILENAMES:
+        if regex.search(filename):
             return True
     return False
 
@@ -37,16 +37,25 @@ def sort_files(path, dry_run=False):
     if dry_run:
         print 'dry run'
 
-    for filename in os.listdir(path):
-        if ignore_path(filename):
-            logger.info('Ignoring %s', filename)
-            continue
-
-        logger.debug('Processing %s', filename)
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        logger.debug('dirpath: %s, dirnames: %s, filenames: %s', dirpath, dirnames, filenames)
         
-        mimetype = mimetypes.guess_type(filename)
+        for filename in filenames:
+            if ignore_filename(filename):
+                logger.info('Ignoring %s', filename)
+                continue
         
-        logger.debug('Mimetype: %s', mimetype)
+            logger.debug('Processing %s', filename)
+        
+            (mimetype, enoding) = mimetypes.guess_type(filename)
+            
+            if not mimetype:
+                logger.warn('Mimetype for %s could not be determined', filename)
+            else:
+                logger.debug('Mimetype: %s', mimetype)
+            
+            main_type = mimetype.split('/')[0].title()
+            logger.debug('Main type: %s', main_type)
     
 
 def main(argv=None):
