@@ -44,7 +44,9 @@ def sort_files(path, dry_run=False):
 
         logger.debug('Processing %s', filename)
         
+        mimetype = mimetypes.guess_type(filename)
         
+        logger.debug('Mimetype: %s', mimetype)
     
 
 def main(argv=None):
