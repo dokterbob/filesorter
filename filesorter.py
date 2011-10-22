@@ -28,8 +28,6 @@ IGNORE_FILENAMES = (
 mimetypes.add_type('video/avchd', '.mts')
 mimetypes.add_type('video/avchd', '.m2ts')
 
-NEW_PATH = '%(date)s/%(type)s/%(orig_path)s/%(filename)s'
-
 MIN_AGE = timedelta(minutes=5)
 
 
@@ -67,28 +65,46 @@ def sort_files(path, dest, dry_run=False):
 
             fullpath = os.path.join(dirpath, filename)
             logger.debug('Processing: %s', fullpath)
-
-            (mimetype, enoding) = mimetypes.guess_type(filename)
-
-            if not mimetype:
-                logger.warn('Mimetype for %s could not be determined', filename)
-            else:
-                logger.debug('Mimetype: %s', mimetype)
-
-            main_type = mimetype.split('/')[0].title()
-            logger.debug('Main type: %s', main_type)
-
+            
+            # Determine file change date
             mtime = datetime.fromtimestamp(os.path.getmtime(fullpath))
-
+            
             delta = now - mtime
             if delta < MIN_AGE:
                 logger.warn('File %s modified too recently, skipping (%s minute(s) ago)',
                             fullpath, int(delta.total_seconds()/60))
                 continue
                 
-            datestr = mtime.isoformat()
-            # if not dry_run:
-            #     shutil.move(src, dst)
+            datestr = mtime.date().isoformat()
+
+            (mimetype, enoding) = mimetypes.guess_type(filename)
+
+            if not mimetype:
+                logger.warn('Mimetype for %s could not be determined', filename)
+                main_type = 'Unknown'
+            else:
+                logger.debug('Mimetype: %s', mimetype)
+                main_type = mimetype.split('/')[0].title()
+            
+            # Replace 'Application' with 'Unknown'
+            if main_type == 'Application':
+                main_type = 'Unknown'
+
+            logger.debug('Main type: %s', main_type)
+
+            new_filename = os.path.join(dest, datestr, main_type, dirpath[len(path):], filename)
+
+            logger.info('Renaming %s to %s', fullpath, new_filename)
+
+            if not dry_run:
+                # shutil.move(src, dst)
+
+                logger.debug('Attempting to remove directory %s', dirpath)
+                
+                try:
+                    os.rmdir(dirpath)
+                except OSError:
+                    logger.warn('Cannot unlink %s; not empty', dirpath)
 
 
 def main(argv=None):
@@ -102,7 +118,10 @@ def main(argv=None):
     numeric_level = getattr(logging, args.logging.upper())
     logging.basicConfig(level=numeric_level, format='%(message)s')
 
-    sort_files(args.path, args.dry_run, args.dest or args.path)
+    # if not args.dest:
+    #     args.dest = args.path
+
+    sort_files(args.path, args.dest or args.path, args.dry_run)
 
 if __name__ == "__main__":
     sys.exit(main())
